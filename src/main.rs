@@ -4,12 +4,14 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, player_input)
+        .add_systems(Update, (player_input, apply_physics).chain()) 
         .run();
 }
 
 #[derive(Component)]
-struct Player;
+struct Player {
+    velocity: Vec2,
+}
 
 fn setup(
     mut commands: Commands,
@@ -21,36 +23,55 @@ fn setup(
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::default())),
         MeshMaterial2d(materials.add(Color::from(PURPLE))),
-        Transform::default().with_scale(Vec3::splat(128.)), Player
+        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(128.)),
+        Player { velocity: Vec2::ZERO },
     ));
 }
 
-
 fn player_input(
     keys: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
-    mut query: Query<&mut Transform, With<Player>>,
+    mut query: Query<(&mut Player, &Transform)>,
 ) {
-    let speed = 300.0; // pixels por segundo
-    let mut dir = 0.0;
-    if keys.pressed(KeyCode::KeyA) {
-        dir -= 1.0;
-    }
-    if keys.pressed(KeyCode::KeyD) {
-        dir += 1.0;
-    }
+    let Ok((mut player, transform)) = query.single_mut() else { return; };
+    let speed = 400.0;
+    let jump_force = 350.0;
 
-    if dir != 0.0 {
-        let dt = time.delta_secs();
-        for mut transform in query.iter_mut() {
-            transform.translation.x += dir * speed * dt;
-        }
+    // Movimento Horizontal
+    let mut x_dir = 0.0;
+    if keys.pressed(KeyCode::KeyA) { x_dir -= 1.0; }
+    if keys.pressed(KeyCode::KeyD) { x_dir += 1.0; }
+    player.velocity.x = x_dir * speed;
+
+    // Pulo (apenas se estiver no chão)
+    if keys.just_pressed(KeyCode::KeyW) && transform.translation.y <= 0.0 {
+        player.velocity.y = jump_force;
     }
 }
 
-fn pysichs_system(
+fn apply_physics(
     time: Res<Time>,
-    mut query: Query<&Transform, With<Player>>,
+    mut query: Query<(&mut Player, &mut Transform)>,
 ) {
-    let y_pos = query.single().translation.y;
+    let dt = time.delta_secs();
+    let gravity = -1500.0;
+
+    for (mut player, mut transform) in query.iter_mut() {
+        // 1. Aplica gravidade à velocidade
+        if transform.translation.y > 0.0 || player.velocity.y > 0.0 {
+            player.velocity.y += gravity * dt;
+        } else {
+            player.velocity.y = 0.0;
+            transform.translation.y = 0.0;
+        }
+
+        // 2. Aplica a velocidade à posição
+        transform.translation.x += player.velocity.x * dt;
+        transform.translation.y += player.velocity.y * dt;
+
+        // 3. Trava no chão
+        if transform.translation.y < 0.0 {
+            transform.translation.y = 0.0;
+            player.velocity.y = 0.0;
+        }
+    }
 }
