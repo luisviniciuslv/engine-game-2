@@ -12,8 +12,7 @@ fn main() {
                 // 2. BorderlessFullscreen vai expandir para 2560x1080 no seu monitor
                 // de forma segura, pois ele já tem uma base de 1080p iniciada.
                 mode: bevy::window::WindowMode::Windowed,//BorderlessFullscreen(MonitorSelection::Primary),
-                // 3. PresentMode::AutoVsync ajuda a evitar o erro de "Device Lost" 
-                // sincronizando os frames com o monitor.
+                // 3. PresentMode::AutoNoVsync ajuda a evitar o erro de "Device Lost" 
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
             }),
